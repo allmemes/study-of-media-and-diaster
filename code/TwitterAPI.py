@@ -4,7 +4,7 @@ import logging
 from multiprocessing.dummy import Process
 import requests
 import time
-from typing import Callable, Union, Dict, Iterable, Set
+from typing import Callable, Union, Dict, Iterable
 
 import pandas as pd
 
@@ -20,7 +20,7 @@ class TwitterAPI(object):
             "created_at",
             "source",
             "public_metrics",
-            "geo"
+            "geo",
         },
         "expansions": "",
         "user.fields": {"created_at", "entities", "location", "url", "username"},
@@ -112,7 +112,7 @@ class TwitterAPI(object):
         params: Dict = dict(),
         start_time: str = "",
         end_time: str = "",
-        func: Callable = None
+        func: Callable = None,
     ) -> Iterable[Dict]:
         """Search tweets with certain period
 
@@ -201,20 +201,24 @@ class TwitterAPI(object):
             time.sleep(1)
         return pd.DataFrame(results)
 
-    def search_user(
-        self,
-        user_id: Union[int, str],
-        fields: Set[str] = {
-            "followers_count",
-            "tweet_count",
-            "username",
-            "verified",
-            "created_at",
-            "location",
-        },
-        *,
-        params: Dict = dict()
-    ):
+    def search_geo(self, place_id: str):
+        """Search the info of a geo location
+
+        Args:
+            place_id (str): The id of a place
+        Returns:
+            (Dict): The query result of the location
+        """
+        headers = {"Authorization": "Bearer {}".format(self._api_tokens["token"])}
+        response = requests.request(
+            "GET",
+            f"https://api.twitter.com/1.1/geo/id/{place_id}.json",
+            headers=headers,
+        )
+        logger.debug(response.url)
+        return response.json()
+
+    def search_user(self, user_id: Union[int, str], *, params: Dict = dict()):
         """Search user by user_id
 
         Args:
@@ -236,9 +240,33 @@ class TwitterAPI(object):
         logger.debug(response.url)
         return response.json()["data"]
 
+    def search_users(
+        self, user_ids: Iterable[Union[int, str]], *, params: Dict = dict()
+    ):
+        """Search user by user_id
+
+        Args:
+            user_id (Union[int, str]): The id of the user
+            params(Dict): Other paremeters used for query
+        Returns:
+            (Dict): The query result of user
+        """
+        kwargs = {"ids": ",".join({str(user_id) for user_id in user_ids})}
+        for key, val in self.default_user_id_params.items():
+            kwargs[key] = val if key not in params else params[key]
+            if hasattr(kwargs[key], "__iter__") and not isinstance(kwargs[key], str):
+                kwargs[key] = ",".join(kwargs[key])
+
+        headers = {"Authorization": "Bearer {}".format(self._api_tokens["token"])}
+        response = requests.request(
+            "GET", self.url + "users", headers=headers, params=kwargs
+        )
+        logger.debug(response.url)
+        return response.json()["data"]
+
     @staticmethod
     def parse_tweet(series: pd.Series) -> pd.Series:
-        series = series.str.replace(r"(@[\w|\d]+|\#[\w|\d]+|https\S+)", " ")
+        series = series.str.replace(r"(@[\w|\d]+|\#[\w|\d]+|https\S+)", " ", regex=True)
         for s in [r"\s{2,}", r"RT:\s?", r"^s+\$", r"\\u", r"[^\s\w,!?]"]:
-            series = series.str.replace(s, "")
-        return series.str.replace(r"\s+", " ")
+            series = series.str.replace(s, "", regex=True)
+        return series.str.replace(r"\s+", " ", regex=True)
