@@ -10,51 +10,55 @@ import pandas as pd
 
 class GoogleEarth(object):
     def __init__(self):
-        ee.Authenticate()
-        ee.Initialize()
+        try:
+            ee.Initialize()
+        except Exception:
+            ee.Authenticate()
+            ee.Initialize()
 
     def _get_point_features(
         self,
         point: ee.feature.Feature,
-        date: dt.datetime,
         fields: List[str],
         collection: ee.ImageCollection,
-        region: ee.Geometry
+        region: ee.Geometry,
+        start_time: dt.datetime,
+        time_delta: dt.timedelta = dt.timedelta(days=1)
     ) -> ee.Feature:
         """Get the features of a point
 
         Args:
             point (ee.feature.Feature): The point of interest
-            date (dt.datetime): The date of interest
             fields (List[str]): The fields of interest
             collection (ee.ImageCollection): The collection from Google Earth
             region (ee.Geometry): The region of interest
+            start_time (dt.datetime): The start time of interest
+            time_delta (dt.timedelta): The time range of the data
 
         Returns:
             (ee.Feature): The features of the point
         """
         point = point.geometry()
-        start_date = date.strftime("%Y-%m-%d")
-        end_date = (date + dt.timedelta(1)).strftime("%Y-%m-%d")
-        data_mean = collection.filterDate(start_date, end_date).filterBounds(region).mean()
-
-        data = data_mean.reduceRegion(ee.Reducer.first(), point, 500)
+        data = collection.filterDate(start_time, start_time + time_delta)
+        data = data.filterBounds(region).mean().reduceRegion(ee.Reducer.first(), point, 500)
         return ee.Feature(point, {field: data.get(field) for field in fields})
 
     def get_region_features(
         self,
         u: List[float],
         v: List[float],
-        date: dt.datetime,
-        fields: List[str]
+        fields: List[str],
+        start_time: dt.datetime,
+        time_delta: dt.timedelta = dt.timedelta(days=1)
     ) -> pd.DataFrame:
         """Get the features of random points in a given region
 
         Args:
             u (List[float]): The x coordinates
             v (List[float]): The y coordinates
-            date (dt.datetime): The date of interest
             fields (List[str]): The fields of interest
+            start_time (dt.datetime): The start time of interest
+            time_delta (dt.timedelta): The time range of the data
 
         Returns:
             (pd.DataFrame): The dataframe with points coordinates and features
@@ -62,10 +66,11 @@ class GoogleEarth(object):
         region = ee.Geometry.Polygon(list(product([min(u), max(u)], [min(v), max(v)])))
         points = ee.FeatureCollection([ee.Feature(ee.Geometry.Point(*p)) for p in product(u, v)])
         get_fields = partial(self._get_point_features,
-                             date=date,
                              fields=fields,
                              collection=ee.ImageCollection("NASA/NLDAS/FORA0125_H002"),
-                             region=region)
+                             region=region,
+                             start_time=start_time,
+                             time_delta=time_delta)
         return self._resolve_features(points.map(get_fields).getInfo())
 
     def get_region_random_features(
@@ -73,8 +78,9 @@ class GoogleEarth(object):
         u: List[float],
         v: List[float],
         n_points: int,
-        date: dt.datetime,
-        fields: List[str]
+        fields: List[str],
+        start_time: dt.datetime,
+        time_delta: dt.timedelta = dt.timedelta(days=1)
     ) -> pd.DataFrame:
         """Get the features of random points in a given region
 
@@ -82,8 +88,9 @@ class GoogleEarth(object):
             u (List[float]): The x coordinates
             v (List[float]): The y coordinates
             n_points (int): The number of points
-            date (dt.datetime): The date of interest
             fields (List[str]): The fields of interest
+            start_time (dt.datetime): The start time of interest
+            time_delta (dt.timedelta): The time range of the data
 
         Returns:
             (pd.DataFrame): The dataframe with points coordinates and features
@@ -95,10 +102,11 @@ class GoogleEarth(object):
                                                    seed=0,
                                                    maxError=cell_size.multiply(0.5))
         get_fields = partial(self._get_point_features,
-                             date=date,
                              fields=fields,
                              collection=ee.ImageCollection("NASA/NLDAS/FORA0125_H002"),
-                             region=region)
+                             region=region,
+                             start_time=start_time,
+                             time_delta=time_delta)
         return self._resolve_features(points.map(get_fields).getInfo())
 
     def _resolve_features(self, points_fields: Dict[str, Dict]) -> pd.DataFrame:
