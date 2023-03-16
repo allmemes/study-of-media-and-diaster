@@ -16,8 +16,7 @@ class GoogleEarth(object):
     def _get_point_features(
         self,
         point: ee.feature.Feature,
-        start_date: dt.datetime,
-        end_date: dt.datetime,
+        date: dt.datetime,
         fields: List[str],
         collection: ee.ImageCollection,
         region: ee.Geometry
@@ -26,8 +25,7 @@ class GoogleEarth(object):
 
         Args:
             point (ee.feature.Feature): The point of interest
-            start_date (dt.datetime): start_date
-            end_date (dt.datetime): end_date
+            date (dt.datetime): The date of interest
             fields (List[str]): The fields of interest
             collection (ee.ImageCollection): The collection from Google Earth
             region (ee.Geometry): The region of interest
@@ -36,9 +34,10 @@ class GoogleEarth(object):
             (ee.Feature): The features of the point
         """
         point = point.geometry()
-        start_date = start_date.strftime("%Y-%m-%d")
-        end_date = end_date.strftime("%Y-%m-%d")
+        start_date = date.strftime("%Y-%m-%d")
+        end_date = (date + dt.timedelta(1)).strftime("%Y-%m-%d")
         data_mean = collection.filterDate(start_date, end_date).filterBounds(region).mean()
+
         data = data_mean.reduceRegion(ee.Reducer.first(), point, 500)
         return ee.Feature(point, {field: data.get(field) for field in fields})
 
@@ -46,8 +45,7 @@ class GoogleEarth(object):
         self,
         u: List[float],
         v: List[float],
-        start_date: dt.datetime,
-        end_date: dt.datetime,
+        date: dt.datetime,
         fields: List[str]
     ) -> pd.DataFrame:
         """Get the features of random points in a given region
@@ -55,8 +53,7 @@ class GoogleEarth(object):
         Args:
             u (List[float]): The x coordinates
             v (List[float]): The y coordinates
-            start_date (dt.datetime): start_date
-            end_date (dt.datetime): end_date
+            date (dt.datetime): The date of interest
             fields (List[str]): The fields of interest
 
         Returns:
@@ -65,8 +62,7 @@ class GoogleEarth(object):
         region = ee.Geometry.Polygon(list(product([min(u), max(u)], [min(v), max(v)])))
         points = ee.FeatureCollection([ee.Feature(ee.Geometry.Point(*p)) for p in product(u, v)])
         get_fields = partial(self._get_point_features,
-                             start_date=start_date,
-                             end_date=end_date,
+                             date=date,
                              fields=fields,
                              collection=ee.ImageCollection("NASA/NLDAS/FORA0125_H002"),
                              region=region)
@@ -77,8 +73,7 @@ class GoogleEarth(object):
         u: List[float],
         v: List[float],
         n_points: int,
-        start_date: dt.datetime,
-        end_date: dt.datetime,
+        date: dt.datetime,
         fields: List[str]
     ) -> pd.DataFrame:
         """Get the features of random points in a given region
@@ -87,8 +82,7 @@ class GoogleEarth(object):
             u (List[float]): The x coordinates
             v (List[float]): The y coordinates
             n_points (int): The number of points
-            start_date (dt.datetime): start_date
-            end_date (dt.datetime): end_date
+            date (dt.datetime): The date of interest
             fields (List[str]): The fields of interest
 
         Returns:
@@ -101,8 +95,7 @@ class GoogleEarth(object):
                                                    seed=0,
                                                    maxError=cell_size.multiply(0.5))
         get_fields = partial(self._get_point_features,
-                             start_date=start_date,
-                             end_date=end_date,
+                             date=date,
                              fields=fields,
                              collection=ee.ImageCollection("NASA/NLDAS/FORA0125_H002"),
                              region=region)
