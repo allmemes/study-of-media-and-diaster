@@ -4,7 +4,7 @@
 
 ##### Investigation Time Period
 
-2023/02/03 - 2023/02/08
+2023/02/03 - 2023/03/08
 
 ### 2. Data Source
 
@@ -27,7 +27,7 @@
 
 ### 4. Hypothesis
 
-1. At the very begging, people close to the local area are driven by our simulation result
+1. At the very beginning, people close to the local area are driven by our simulation result
 2. Video on Tiktok can drive more people around the whole country
 3. Everyone is interested in the disaster when there is some news actually coming out.
 
