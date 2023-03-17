@@ -31,8 +31,3 @@
 2. Video on Tiktok can drive more people around the whole country
 3. Everyone is interested in the disaster when there is some news actually coming out.
 
-
-
-
-光气 氯化氢 眼睛充血 咳嗽 失眠 头疼乏力
- 
