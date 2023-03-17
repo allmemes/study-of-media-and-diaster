@@ -20,7 +20,8 @@ class Simulator(object):
                  source: Tuple[float],
                  iteration_interval: dt.timedelta,
                  simulate_interval: dt.timedelta,
-                 google_earth: GoogleEarth):
+                 google_earth: GoogleEarth,
+                 precision: int = 2):
         """A simulator for the disperson
 
         Args:
@@ -30,6 +31,7 @@ class Simulator(object):
             iteration_interval (dt.timedelta): The timedelta for each iteration
             simulate_interval (dt.timedelta): The timedelta for each wind simulation
             google_earth (GoogleEarth): Google Earth API
+            precision (int): The precision of simulation
         """
         self.time = start_time
         self.end_time = end_time
@@ -37,10 +39,11 @@ class Simulator(object):
         self.simulation_interval = simulate_interval.seconds
         self.google_earth = google_earth
         self.status = dict()
-        y_unit = 111690  # 0.01 degree in latitude is equal to 111690m
+        y_unit = 111690  # 1 degree in latitude is equal to 111690m
         self.move = np.array([1 / math.cos(source[-1] * math.pi / 180), 1])
-        self.move = self.simulation_interval / y_unit / self.move
-        self.source = source
+        self.move = (iteration_interval.seconds / y_unit / self.move)
+        self.source = tuple(round(i, precision) for i in source)
+        self.precision = precision
 
     def apply_wind(self,
                    df_coordinates: List[List[float]],
@@ -63,8 +66,9 @@ class Simulator(object):
         geo = np.repeat(geo, simulation_count, axis=0)
         move = np.tile(np.ones(simulation_count).cumsum(), len(df_coordinates))
         geo[:, :2] += (move.reshape(len(move), 1) * self.move.reshape(1, 2)) * geo[:, -2:]
+
         particles = np.repeat(df_coordinates["p"], simulation_count) / simulation_count
-        for (x, y), particle in zip(geo[:, :2].round(2), particles):
+        for (x, y), particle in zip(geo[:, :2].round(self.precision), particles):
             new_status[(x, y)] += particle
 
     def step(self):
@@ -74,10 +78,10 @@ class Simulator(object):
 
         df_coordinates = list()
         for (x, y), p in self.status.items():
-            if p < 1e-3:
+            if p < 1e-4:
                 continue
             df_coordinates.append([x, y, p])
-            if len(df_coordinates) >= 100:
+            if len(df_coordinates) >= 2500:
                 self.apply_wind(df_coordinates, new_status)
                 df_coordinates.clear()
         if df_coordinates:
@@ -106,8 +110,8 @@ class Simulator(object):
         df_status["Value"] = df_status["Value"] / df_status["Value"].sum()
         ax = plt.subplots(figsize=(12.5, 12.5))[1]
         df_status.plot(column="Value", cmap="Reds", linewidth=0.1, edgecolor="white", ax=ax)
-        ax.set_xlim(-90, -70)
-        ax.set_ylim(35, 45)
+        ax.set_xlim(-100, -60)
+        ax.set_ylim(25, 55)
         if status_time is not None:
             status_time = status_time.strftime("%Y%m%d %H%M%S")
             ax.set_title(f"Status plot at {status_time}")
