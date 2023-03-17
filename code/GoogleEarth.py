@@ -43,6 +43,36 @@ class GoogleEarth(object):
         data = data.filterBounds(region).mean().reduceRegion(ee.Reducer.first(), point, 500)
         return ee.Feature(point, {field: data.get(field) for field in fields})
 
+    def get_points_features(
+        self,
+        u: List[float],
+        v: List[float],
+        fields: List[str],
+        start_time: dt.datetime,
+        time_delta: dt.timedelta = dt.timedelta(days=1)
+    ) -> pd.DataFrame:
+        """Get the features of points in a given region
+
+        Args:
+            u (List[float]): The x coordinates of points of interest
+            v (List[float]): The y coordinates of points of interest
+            fields (List[str]): The fields of interest
+            start_time (dt.datetime): The start time of interest
+            time_delta (dt.timedelta): The time range of the data
+
+        Returns:
+            (pd.DataFrame): The dataframe with points coordinates and features
+        """
+        region = ee.Geometry.Polygon(list(product([min(u), max(u)], [min(v), max(v)])))
+        points = ee.FeatureCollection([ee.Feature(ee.Geometry.Point(*p)) for p in zip(u, v)])
+        get_fields = partial(self._get_point_features,
+                             fields=fields,
+                             collection=ee.ImageCollection("NASA/NLDAS/FORA0125_H002"),
+                             region=region,
+                             start_time=start_time,
+                             time_delta=time_delta)
+        return self._resolve_features(points.map(get_fields).getInfo())
+
     def get_region_features(
         self,
         u: List[float],
@@ -51,11 +81,11 @@ class GoogleEarth(object):
         start_time: dt.datetime,
         time_delta: dt.timedelta = dt.timedelta(days=1)
     ) -> pd.DataFrame:
-        """Get the features of random points in a given region
+        """Get the features of grid points in a given region
 
         Args:
-            u (List[float]): The x coordinates
-            v (List[float]): The y coordinates
+            u (List[float]): The x coordinates of grid
+            v (List[float]): The y coordinates of grid
             fields (List[str]): The fields of interest
             start_time (dt.datetime): The start time of interest
             time_delta (dt.timedelta): The time range of the data
