@@ -39,9 +39,9 @@ class Simulator(object):
         self.simulation_interval = simulate_interval.seconds
         self.google_earth = google_earth
         self.status = dict()
-        y_unit = 111690  # 1 degree in latitude is equal to 111690m
-        self.move = np.array([1 / math.cos(source[-1] * math.pi / 180), 1])
-        self.move = (iteration_interval.seconds / y_unit / self.move)
+        # 1 degree in latitude is equal to 111690m
+        self.move = 111690 * np.array([math.cos(source[-1] * math.pi / 180), 1])
+        self.move = iteration_interval.seconds / self.move
         self.source = tuple(round(i, precision) for i in source)
         self.precision = precision
 

@@ -1,7 +1,5 @@
-*.csv
-data/Simulation
-figures/simulation
-
+simulation
+tmp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
