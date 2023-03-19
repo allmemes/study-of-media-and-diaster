@@ -56,20 +56,21 @@ class Simulator(object):
         Returns:
             (pd.DataFrame): A new dataframe with updated coordinates
         """
-        df_coordinates = pd.DataFrame(df_coordinates, columns=["x", "y", "p"])
-        geo = self.google_earth.get_points_features(df_coordinates["x"],
-                                                    df_coordinates["y"],
-                                                    ["wind_u", "wind_v"],
-                                                    start_time=self.time,
-                                                    time_delta=self.iteration_interval).values
-        simulation_count = self.iteration_interval.seconds // self.simulation_interval
-        geo = np.repeat(geo, simulation_count, axis=0)
-        move = np.tile(np.ones(simulation_count).cumsum(), len(df_coordinates))
-        geo[:, :2] += (move.reshape(len(move), 1) * self.move.reshape(1, 2)) * geo[:, -2:]
+        df_coordinates = pd.DataFrame(df_coordinates, columns=["x", "y", "p"]).dropna()
+        if not df_coordinates.empty:
+            geo = self.google_earth.get_points_features(df_coordinates["x"],
+                                                        df_coordinates["y"],
+                                                        ["wind_u", "wind_v"],
+                                                        start_time=self.time,
+                                                        time_delta=self.iteration_interval).values
+            simulation_count = self.iteration_interval.seconds // self.simulation_interval
+            geo = np.repeat(geo, simulation_count, axis=0)
+            move = np.tile(np.ones(simulation_count).cumsum(), len(df_coordinates))
+            geo[:, :2] += (move.reshape(len(move), 1) * self.move.reshape(1, 2)) * geo[:, -2:]
 
-        particles = np.repeat(df_coordinates["p"], simulation_count) / simulation_count
-        for (x, y), particle in zip(geo[:, :2].round(self.precision), particles):
-            new_status[(x, y)] += particle
+            particles = np.repeat(df_coordinates["p"], simulation_count) / simulation_count
+            for (x, y), particle in zip(geo[:, :2].round(self.precision), particles):
+                new_status[(x, y)] += particle
 
     def step(self):
         new_status = defaultdict(int)
@@ -78,21 +79,24 @@ class Simulator(object):
 
         df_coordinates = list()
         for (x, y), p in self.status.items():
-            if p < 1e-4:
+            if p < 1e-4 or y > 55 or y < 25 or x < -100 or x > -60:
                 continue
             df_coordinates.append([x, y, p])
             if len(df_coordinates) >= 2500:
                 self.apply_wind(df_coordinates, new_status)
                 df_coordinates.clear()
-        if df_coordinates:
-            self.apply_wind(df_coordinates, new_status)
+        self.apply_wind(df_coordinates, new_status)
         self.time += self.iteration_interval
         self.status = new_status
 
     def get_status(self) -> pd.DataFrame:
         """Get current simulation status"""
+        status = self.status.copy()
         df = pd.DataFrame(columns=["X", "Y", "P"])
-        for (x, y), p in self.status.items():
+        time_to_stop = (self.end_time - self.time) / self.iteration_interval
+        if time_to_stop > 0:
+            status[self.source] = status.get(self.source, 0) + time_to_stop
+        for (x, y), p in status.items():
             df.loc[len(df)] = [x, y, p]
         return df
 
@@ -105,11 +109,12 @@ class Simulator(object):
         df_geo = gpd.GeoDataFrame(df_status, geometry=geometry, crs="EPSG:4326")
         df_geo = gpd.sjoin(df_geo, df_shp, op="within", how="left")
         df_status = df_shp.set_index(["NAME"])
-        df_status["Value"] = df_geo.groupby(["NAME"]).count()["P"]
+        df_status["Value"] = df_geo.groupby(["NAME"])["P"].sum()
         df_status["Value"] = df_status["Value"].fillna(0)
-        df_status["Value"] = df_status["Value"] / df_status["Value"].sum()
         ax = plt.subplots(figsize=(12.5, 12.5))[1]
-        df_status.plot(column="Value", cmap="Reds", linewidth=0.1, edgecolor="white", ax=ax)
+        scheme = None if len(df_status["Value"].unique()) < 5 else "fisher_jenks"
+        df_status.plot(column="Value", cmap="Reds", linewidth=0.1,
+                       edgecolor="white", ax=ax, scheme=scheme)
         ax.set_xlim(-100, -60)
         ax.set_ylim(25, 55)
         if status_time is not None:
@@ -117,3 +122,4 @@ class Simulator(object):
             ax.set_title(f"Status plot at {status_time}")
         ax.set_xlabel("Longitude")
         ax.set_ylabel("Latitude")
+        return df_status
