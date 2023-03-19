@@ -5,6 +5,7 @@ from itertools import product
 from typing import Dict, List
 
 import ee
+import numpy as np
 import pandas as pd
 
 
@@ -71,7 +72,7 @@ class GoogleEarth(object):
                              region=region,
                              start_time=start_time,
                              time_delta=time_delta)
-        return self._resolve_features(points.map(get_fields).getInfo())
+        return self._resolve_features(points.map(get_fields).getInfo(), fields)
 
     def get_region_features(
         self,
@@ -139,21 +140,20 @@ class GoogleEarth(object):
                              time_delta=time_delta)
         return self._resolve_features(points.map(get_fields).getInfo())
 
-    def _resolve_features(self, points_fields: Dict[str, Dict]) -> pd.DataFrame:
+    def _resolve_features(self, points_fields: Dict[str, Dict], fields: List[str]) -> pd.DataFrame:
         """Resolve the _resolve_features of points
 
         Args:
             points_fields (Dict[str, Dict]): The mapped points with fields
+            fields (List[str]): The fields of interest
 
         Returns:
             (pd.DataFrame): The dataframe with points coordinates and features
         """
-        df = {"u": list(), "v": list()}
+        df = list()
         for item in points_fields["features"]:
-            df["u"].append(item["geometry"]["coordinates"][0])
-            df["v"].append(item["geometry"]["coordinates"][1])
-            for key in item["properties"].keys():
-                if key not in df.keys():
-                    df[key] = list()
-                df[key].append(item["properties"][key])
-        return pd.DataFrame(df)
+            row = item["geometry"]["coordinates"][:2]
+            for field in fields:
+                row.append(item["properties"].get(field, np.NaN))
+            df.append(row)
+        return pd.DataFrame(df, columns=["u", "v"] + fields)
