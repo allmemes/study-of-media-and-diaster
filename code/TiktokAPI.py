@@ -65,6 +65,6 @@ class TiktokAPI(object):
                 "AuthorVideoCount": video["authorStats"]["videoCount"]
             })
         df = pd.DataFrame(df)
-        df["CreateTime"] = pd.to_datetime(df["CreateTime"], unit="s")
-        df["Day"] = df["CreateTime"].dt.strftime("%Y%m%d")
+        df["EST"] = pd.to_datetime(df["CreateTime"], unit="s") - pd.Timedelta(hours=5)
+        df["Date"] = df["EST"].dt.strftime("%Y%m%d")
         return df.set_index(["Id"]).sort_index()
