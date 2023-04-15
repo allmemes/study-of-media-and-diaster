@@ -1,32 +1,23 @@
 # What drives people's attention to disaster? A case study in Ohio Derailment
 
-### 1. Setting
+### Code Walkthrough
 
-##### Investigation Time Period
+1. ProcessTweets.ipynb
 
-2023/02/03 - 2023/02/28
+   Fetch related tweets and extract URLs to get Twitter features
 
-### 2. Data Source
+2. ProcessGoogle.ipynb
 
-1. <u>Twitter</u> with keywords: has:geo (#Derailment OR "Vinyl chloride" OR "East Palestine")
-2. <u>Google Trend</u> with keywords "Derailment", "EastPalestine", "VinylChloride"
-3. <u>Google Earth API</u> with wind and temperature data
-4. News (Manually or through Twitter)
-5. Wikipedia
-6. TikTok 
+   Fetch Google Trend data used as our labels and research objective
 
-### 3. Methods
+3. ProcessTiktok.ipynb
 
-1. Set the label, can be the google trend/tweets/Wikipedia or some index taking all of them into consideration
-2. Construct features
-   - Toxic gases simulation
-   - Tweets itself
-   - News
-   - Video on Tiktok
-3. Aggregate the features and labels based on geology (county wise or state wise) and time series
+   Fetch Tiktok data used as Tiktok features
 
-### 4. Hypothesis
+4. Simulation.ipynb
 
-1. At the very beginning, people close to the local area are driven by our simulation result
-2. Video on Tiktok can drive more people around the whole country
-3. Everyone is interested in the disaster when there is some news actually coming out.
+   Use Google Earth to get wind data and simluate the dispersion.
+
+5. Analysis.ipynb
+
+   User previous features and data to build model and get our analysis result
